@@ -1,0 +1,96 @@
+`timescale 1ns / 1ps
+
+module protocol(
+    input wire clk,
+    input wire reset,
+    input wire [15:0] datain,
+    output wire spi_cs_l,
+    output wire spi_sclk,
+    output wire spi_data,
+    output wire [4:0] counter
+);
+
+    reg mosi;
+    reg [4:0] count;
+    reg cs_l;
+    reg sclk;
+    reg [2:0] state;
+
+    always @(posedge clk or posedge reset)
+    begin
+        if(reset)
+        begin
+            mosi  <= 1'b0;
+            count <= 5'd16;
+            cs_l  <= 1'b1;
+            sclk  <= 1'b0;
+            state <= 3'd0;
+        end
+
+        else
+        begin
+            case(state)
+
+            // Idle state
+            3'd0:
+            begin
+                sclk <= 1'b0;
+                cs_l <= 1'b1;
+                count <= 5'd16;
+                state <= 3'd1;
+            end
+
+
+            // Load MOSI data bit
+            3'd1:
+            begin
+                cs_l <= 1'b0;
+                sclk <= 1'b0;
+
+                if(count > 0)
+                begin
+                    mosi <= datain[count-1];
+                    count <= count - 1;
+                    state <= 3'd2;
+                end
+
+                else
+                begin
+                    state <= 3'd0;
+                end
+            end
+
+
+            // Generate SPI clock high
+            3'd2:
+            begin
+                sclk <= 1'b1;
+
+                if(count > 0)
+                    state <= 3'd1;
+
+                else
+                begin
+                    cs_l <= 1'b1;
+                    sclk <= 1'b0;
+                    state <= 3'd0;
+                end
+            end
+
+
+            default:
+            begin
+                state <= 3'd0;
+            end
+
+            endcase
+        end
+    end
+
+
+    assign spi_cs_l = cs_l;
+    assign spi_sclk = sclk;
+    assign spi_data = mosi;
+    assign counter  = count;
+
+endmodule
